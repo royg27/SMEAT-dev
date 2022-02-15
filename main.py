@@ -88,12 +88,6 @@ elif args.model == 'wrn':
 else:
     raise Exception(f'{args.model} is an invalid option. Should be rn or wrn.')
 
-
-if use_cuda:
-    model.cuda()
-    print(torch.cuda.device_count())
-    print('Using CUDA..')
-
 model = torch.nn.DataParallel(model)
 wandb.watch(model)
 
