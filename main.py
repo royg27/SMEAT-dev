@@ -82,9 +82,9 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False,
 # Create Model
 
 if args.model == 'rn':
-    model = torch.nn.DataParallel(PreActResNet(ensemble_size=args.ensemble_size))
+    model = PreActResNet(ensemble_size=args.ensemble_size)
 elif args.model == 'wrn':
-    model = torch.nn.DataParallel(WideResNet(ensemble_size=args.ensemble_size))
+    model = WideResNet(ensemble_size=args.ensemble_size)
 else:
     raise Exception(f'{args.model} is an invalid option. Should be rn or wrn.')
 
@@ -94,6 +94,7 @@ if use_cuda:
     print(torch.cuda.device_count())
     print('Using CUDA..')
 
+model = torch.nn.DataParallel(model)
 wandb.watch(model)
 
 # create optimizer
