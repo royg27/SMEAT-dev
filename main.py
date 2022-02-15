@@ -9,7 +9,6 @@ from torchvision import transforms
 import torchvision.datasets as datasets
 from models.resnet import WideResNet, PreActResNet
 from tqdm import tqdm
-from warmup_scheduler import GradualWarmupScheduler
 from torch.optim.lr_scheduler import MultiStepLR
 
 parser = argparse.ArgumentParser(description='SMEAT: Single Model Ensemble Adversarial Training')
@@ -96,7 +95,6 @@ wandb.watch(model)
 # create optimizer
 optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.decay)
 scheduler = MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.1)
-scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=1, total_epoch=5, after_scheduler=scheduler)
 
 # Train
 def train():
@@ -238,7 +236,7 @@ for epoch in range(args.epochs):
     print(f'Epoch {epoch} : train acc is {train_acc} | test acc is {test_acc}')
     wandb.log({'train clean acc': train_acc, 'test clean acc': test_acc})
     # adjust_learning_rate(optimizer, epoch)
-    scheduler_warmup.step()
+    scheduler.step()
     # save model
     if test_acc > best_acc:
         best_acc = test_acc
