@@ -1,0 +1,12 @@
+program: main.py
+method: grid
+metric:
+  name: test clean acc
+  goal: maximize
+parameters:
+  seed:
+    values: [1]
+  model:
+    values: ['wrn']
+  ensemble_size:
+    values: [3,1]
