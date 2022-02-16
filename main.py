@@ -16,7 +16,7 @@ parser.add_argument('--model', default="wrn", type=str,
                     help='model type: wrn for wrn-28-10 or rn for PreAct ResNet-18')
 parser.add_argument('--ensemble_size', default=3, type=int, help='ensemble_size')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser.add_argument('--batch_size', default=512, type=int, help='batch size')
+parser.add_argument('--batch_size', default=64, type=int, help='batch size')
 parser.add_argument('--batch_repetition', default=4, type=int, help='batch size')
 parser.add_argument('--seed', default=1, type=int, help='batch size')
 parser.add_argument('--epochs', default=250, type=int, help='total epochs to run')
@@ -94,7 +94,7 @@ wandb.watch(model)
 
 # create optimizer
 optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.decay)
-scheduler = MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.1)
+# scheduler = MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.1)
 
 # Train
 def train():
@@ -124,21 +124,18 @@ def train():
               6: 'frog',
               7: 'horse',
               8: 'ship',
-              9: 'truck'}shuffle_indices = [
-          tf.concat([tf.random.shuffle(main_shuffle[:to_shuffle]),
-                     main_shuffle[to_shuffle:]], axis=0)
-          for _ in range(FLAGS.ensemble_size)]
+              9: 'truck'}
         plt.figure()
         plt.imshow(inputs[0,:3,:,:].permute(1,2,0).detach().cpu().numpy())
-        plt.title(class_dict[targets[0].cpu().item()])
+        plt.title(class_dict[targets[64 * 4 * 0].cpu().item()])
         plt.show()
         plt.figure()
         plt.imshow(inputs[0,3:6,:,:].permute(1,2,0).detach().cpu().numpy())
-        plt.title(class_dict[targets[128].cpu().item()])
+        plt.title(class_dict[targets[64 * 4 * 1].cpu().item()])
         plt.show()
         plt.figure()
         plt.imshow(inputs[0,6:9,:,:].permute(1,2,0).detach().cpu().numpy())
-        plt.title(class_dict[targets[256].cpu().item()])
+        plt.title(class_dict[targets[64 * 4 * 2].cpu().item()])
         plt.show()
         '''
         logits_list = model(inputs)
@@ -208,9 +205,9 @@ def adjust_learning_rate(optimizer, epoch):
     if 'wrn' in args.model:
         if epoch == 0:
             print('LR scheduling of WRN')
-        if epoch >= 80:
+        if epoch >= 60:
             lr *= args.gamma
-        if epoch >= 160:
+        if epoch >= 120:
             lr *= args.gamma
         if epoch >= 180:
             lr *= args.gamma
@@ -235,8 +232,7 @@ for epoch in range(args.epochs):
     test_acc = test()
     print(f'Epoch {epoch} : train acc is {train_acc} | test acc is {test_acc}')
     wandb.log({'train clean acc': train_acc, 'test clean acc': test_acc})
-    # adjust_learning_rate(optimizer, epoch)
-    scheduler.step()
+    adjust_learning_rate(optimizer, epoch)
     # save model
     if test_acc > best_acc:
         best_acc = test_acc

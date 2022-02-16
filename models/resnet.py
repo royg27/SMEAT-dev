@@ -135,10 +135,11 @@ class WideResNet(nn.Module):
     num_channels = [16, 16 * width, 32 * width, 64 * width]
     assert (depth - 4) % 6 == 0
     num_blocks = (depth - 4) // 6
-    self.init_conv = nn.Conv2d(num_input_channels * ensemble_size, num_channels[0],
-                               kernel_size=3, stride=1, padding=1, bias=False)
+    self.init_conv = nn.ModuleList([nn.Conv2d(num_input_channels, num_channels[0], kernel_size=3, stride=1, padding=1,
+                                              bias=False) for _ in range(self.ensemble_size)])
+
     self.layer = nn.Sequential(
-        _BlockGroup(num_blocks, num_channels[0], num_channels[1], 1,
+        _BlockGroup(num_blocks, num_channels[0] * ensemble_size, num_channels[1], 1,
                     activation_fn=activation_fn),
         _BlockGroup(num_blocks, num_channels[1], num_channels[2], 2,
                     activation_fn=activation_fn),
@@ -161,7 +162,11 @@ class WideResNet(nn.Module):
       out = (x - self.mean_cuda) / self.std_cuda
     else:
       out = (x - self.mean) / self.std
-    out = self.init_conv(out)
+    first_conv_outs = []
+    for head in range(self.ensemble_size):
+      first_conv_outs.append(self.init_conv[head](out[:, 3 * head: 3 * (head + 1)]))
+    out = torch.cat(first_conv_outs, 1)
+    # out = self.init_conv(out)
     out = self.layer(out)
     out = self.relu(self.batchnorm(out))
     out = F.avg_pool2d(out, 8)
