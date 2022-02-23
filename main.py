@@ -7,7 +7,7 @@ import random
 import wandb
 from torchvision import transforms
 import torchvision.datasets as datasets
-from models.resnet import WideResNet, PreActResNet
+from models.resnet import WideResNet
 from tqdm import tqdm
 from torch.optim.lr_scheduler import MultiStepLR
 
@@ -83,7 +83,8 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False,
 # Create Model
 
 if args.model == 'rn':
-    model = PreActResNet(ensemble_size=args.ensemble_size)
+    raise Exception("not implemented yet")
+    # model = PreActResNet(ensemble_size=args.ensemble_size)
 elif args.model == 'wrn':
     model = WideResNet(ensemble_size=args.ensemble_size)
 else:
@@ -92,8 +93,14 @@ else:
 model = torch.nn.DataParallel(model).cuda()
 wandb.watch(model)
 
+# modify optimization arguments based on batch repetition
+batch_repetition = args.batch_repetition
+lr = args.lr / batch_repetition
+# TODO : since we have each sample batch_repetition times, we consider its loss batch_repetition times
+
+
 # create optimizer
-optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.decay)
+optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=args.decay)
 # scheduler = MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.1)
 
 # Train

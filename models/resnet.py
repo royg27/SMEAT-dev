@@ -139,7 +139,7 @@ class WideResNet(nn.Module):
                                               bias=False) for _ in range(self.ensemble_size)])
 
     self.layer = nn.Sequential(
-        _BlockGroup(num_blocks, num_channels[0] * ensemble_size, num_channels[1], 1,
+        _BlockGroup(num_blocks, num_channels[0], num_channels[1], 1,
                     activation_fn=activation_fn),
         _BlockGroup(num_blocks, num_channels[1], num_channels[2], 2,
                     activation_fn=activation_fn),
@@ -162,10 +162,10 @@ class WideResNet(nn.Module):
       out = (x - self.mean_cuda) / self.std_cuda
     else:
       out = (x - self.mean) / self.std
-    first_conv_outs = []
+    first_conv_outs = 0
     for head in range(self.ensemble_size):
-      first_conv_outs.append(self.init_conv[head](out[:, 3 * head: 3 * (head + 1)]))
-    out = torch.cat(first_conv_outs, 1)
+      first_conv_outs += self.init_conv[head](out[:, 3 * head: 3 * (head + 1)])
+    out = first_conv_outs
     # out = self.init_conv(out)
     out = self.layer(out)
     out = self.relu(self.batchnorm(out))
@@ -212,71 +212,71 @@ class _PreActBlock(nn.Module):
     return out + shortcut
 
 
-class PreActResNet(nn.Module):
-  """Pre-activation ResNet."""
-
-  def __init__(self,
-               num_classes: int = 10,
-               depth: int = 18,
-               width: int = 0,  # Used to make the constructor consistent.
-               activation_fn: nn.Module = nn.ReLU,
-               mean: Union[Tuple[float, ...], float] = CIFAR10_MEAN,
-               std: Union[Tuple[float, ...], float] = CIFAR10_STD,
-               padding: int = 0,
-               num_input_channels: int = 3,
-               ensemble_size: int = 3):
-    super().__init__()
-    if width != 0:
-      raise ValueError('Unsupported `width`.')
-    self.mean = torch.tile(torch.tensor(mean).view(num_input_channels, 1, 1), (ensemble_size, 1, 1))
-    self.std = torch.tile(torch.tensor(std).view(num_input_channels, 1, 1), (ensemble_size, 1, 1))
-    self.mean_cuda = None
-    self.std_cuda = None
-    self.padding = padding
-    self.ensemble_size = ensemble_size
-    self.conv_2d = nn.Conv2d(num_input_channels * ensemble_size, 64, kernel_size=3, stride=1,
-                             padding=1, bias=False)
-    if depth == 18:
-      num_blocks = (2, 2, 2, 2)
-    elif depth == 34:
-      num_blocks = (3, 4, 6, 3)
-    else:
-      raise ValueError('Unsupported `depth`.')
-    self.layer_0 = self._make_layer(64, 64, num_blocks[0], 1, activation_fn)
-    self.layer_1 = self._make_layer(64, 128, num_blocks[1], 2, activation_fn)
-    self.layer_2 = self._make_layer(128, 256, num_blocks[2], 2, activation_fn)
-    self.layer_3 = self._make_layer(256, 512, num_blocks[3], 2, activation_fn)
-    self.batchnorm = nn.BatchNorm2d(512)
-    self.relu = activation_fn()
-    self.logits = nn.ModuleList([nn.Linear(512, num_classes) for _ in range(self.ensemble_size)])
-
-  def _make_layer(self, in_planes, out_planes, num_blocks, stride,
-                  activation_fn):
-    layers = []
-    for i, stride in enumerate([stride] + [1] * (num_blocks - 1)):
-      layers.append(
-          _PreActBlock(i == 0 and in_planes or out_planes,
-                       out_planes,
-                       stride,
-                       activation_fn))
-    return nn.Sequential(*layers)
-
-  def forward(self, x):
-    if self.padding > 0:
-      x = F.pad(x, (self.padding,) * 4)
-    if x.is_cuda:
-      if self.mean_cuda is None:
-        self.mean_cuda = self.mean.cuda()
-        self.std_cuda = self.std.cuda()
-      out = (x - self.mean_cuda) / self.std_cuda
-    else:
-      out = (x - self.mean) / self.std
-    out = self.conv_2d(out)
-    out = self.layer_0(out)
-    out = self.layer_1(out)
-    out = self.layer_2(out)
-    out = self.layer_3(out)
-    out = self.relu(self.batchnorm(out))
-    out = F.avg_pool2d(out, 4)
-    out = out.view(out.size(0), -1)
-    return [linear(out) for linear in self.logits]
+# class PreActResNet(nn.Module):
+#   """Pre-activation ResNet."""
+#
+#   def __init__(self,
+#                num_classes: int = 10,
+#                depth: int = 18,
+#                width: int = 0,  # Used to make the constructor consistent.
+#                activation_fn: nn.Module = nn.ReLU,
+#                mean: Union[Tuple[float, ...], float] = CIFAR10_MEAN,
+#                std: Union[Tuple[float, ...], float] = CIFAR10_STD,
+#                padding: int = 0,
+#                num_input_channels: int = 3,
+#                ensemble_size: int = 3):
+#     super().__init__()
+#     if width != 0:
+#       raise ValueError('Unsupported `width`.')
+#     self.mean = torch.tile(torch.tensor(mean).view(num_input_channels, 1, 1), (ensemble_size, 1, 1))
+#     self.std = torch.tile(torch.tensor(std).view(num_input_channels, 1, 1), (ensemble_size, 1, 1))
+#     self.mean_cuda = None
+#     self.std_cuda = None
+#     self.padding = padding
+#     self.ensemble_size = ensemble_size
+#     self.conv_2d = nn.Conv2d(num_input_channels * ensemble_size, 64, kernel_size=3, stride=1,
+#                              padding=1, bias=False)
+#     if depth == 18:
+#       num_blocks = (2, 2, 2, 2)
+#     elif depth == 34:
+#       num_blocks = (3, 4, 6, 3)
+#     else:
+#       raise ValueError('Unsupported `depth`.')
+#     self.layer_0 = self._make_layer(64, 64, num_blocks[0], 1, activation_fn)
+#     self.layer_1 = self._make_layer(64, 128, num_blocks[1], 2, activation_fn)
+#     self.layer_2 = self._make_layer(128, 256, num_blocks[2], 2, activation_fn)
+#     self.layer_3 = self._make_layer(256, 512, num_blocks[3], 2, activation_fn)
+#     self.batchnorm = nn.BatchNorm2d(512)
+#     self.relu = activation_fn()
+#     self.logits = nn.ModuleList([nn.Linear(512, num_classes) for _ in range(self.ensemble_size)])
+#
+#   def _make_layer(self, in_planes, out_planes, num_blocks, stride,
+#                   activation_fn):
+#     layers = []
+#     for i, stride in enumerate([stride] + [1] * (num_blocks - 1)):
+#       layers.append(
+#           _PreActBlock(i == 0 and in_planes or out_planes,
+#                        out_planes,
+#                        stride,
+#                        activation_fn))
+#     return nn.Sequential(*layers)
+#
+#   def forward(self, x):
+#     if self.padding > 0:
+#       x = F.pad(x, (self.padding,) * 4)
+#     if x.is_cuda:
+#       if self.mean_cuda is None:
+#         self.mean_cuda = self.mean.cuda()
+#         self.std_cuda = self.std.cuda()
+#       out = (x - self.mean_cuda) / self.std_cuda
+#     else:
+#       out = (x - self.mean) / self.std
+#     out = self.conv_2d(out)
+#     out = self.layer_0(out)
+#     out = self.layer_1(out)
+#     out = self.layer_2(out)
+#     out = self.layer_3(out)
+#     out = self.relu(self.batchnorm(out))
+#     out = F.avg_pool2d(out, 4)
+#     out = out.view(out.size(0), -1)
+#     return [linear(out) for linear in self.logits]
