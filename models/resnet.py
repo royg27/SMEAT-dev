@@ -139,12 +139,9 @@ class WideResNet(nn.Module):
                                               bias=False) for _ in range(self.ensemble_size)])
 
     self.layer = nn.Sequential(
-        _BlockGroup(num_blocks, num_channels[0], num_channels[1], 1,
-                    activation_fn=activation_fn),
-        _BlockGroup(num_blocks, num_channels[1], num_channels[2], 2,
-                    activation_fn=activation_fn),
-        _BlockGroup(num_blocks, num_channels[2], num_channels[3], 2,
-                    activation_fn=activation_fn))
+        _BlockGroup(num_blocks, num_channels[0], num_channels[1], 1, activation_fn=activation_fn),
+        _BlockGroup(num_blocks, num_channels[1], num_channels[2], 2, activation_fn=activation_fn),
+        _BlockGroup(num_blocks, num_channels[2], num_channels[3], 2, activation_fn=activation_fn))
     self.batchnorm = nn.BatchNorm2d(num_channels[3])
     self.relu = activation_fn()
     self.logits = nn.ModuleList([nn.Linear(num_channels[3], num_classes) for _ in range(self.ensemble_size)])

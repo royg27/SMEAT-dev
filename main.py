@@ -95,7 +95,7 @@ wandb.watch(model)
 
 # modify optimization arguments based on batch repetition
 batch_repetition = args.batch_repetition
-lr = args.lr / batch_repetition
+lr = (args.lr / batch_repetition) * (args.batch_size / 128)
 # TODO : since we have each sample batch_repetition times, we consider its loss batch_repetition times
 
 
@@ -209,6 +209,13 @@ def test():
 def adjust_learning_rate(optimizer, epoch):
     """decrease the learning rate at 100 and 150 epoch"""
     lr = args.lr
+    # TODO in MixMo appendix they say:
+    '''
+    drops at 100, 150, 225
+    linear warmup
+    3e-4 l2 reg
+    300 epochs
+    '''
     if 'wrn' in args.model:
         if epoch == 0:
             print('LR scheduling of WRN')
